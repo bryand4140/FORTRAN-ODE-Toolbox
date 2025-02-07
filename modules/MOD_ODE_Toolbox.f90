@@ -3,29 +3,30 @@ module MOD_ODE_Toolbox
 
     implicit none
 
+    private
+
+    !Declair Public Subroutines/Functions:
     integer, public :: start_time
     integer, public :: count_rate
     public :: tic, toc
 
+    !Makes the interface available to other modules and programs:
+    public :: ODE_System
+
+
+    !Interface for the different equation sets used with the SNLE Solver.
+    abstract interface
+        subroutine ODE_System(n, t, x, dx_dt)
+            import pv
+            integer, intent(in)   :: n        !Number of 1st order ODEs in the system
+            real(pv), intent(in)  :: t        !Independent variable (time is used here as a placeholder)
+            real(pv), intent(in)  :: x(n)     !State variable array
+            real(pv), intent(out) :: dx_dt(n) !State variable derivatives
+        end subroutine ODE_System
+    end interface
+
 
 contains
-
-
-    ! BLasius SYS of 1st ORDER EQNS
-    subroutine system_of_odes(t,x,SV)
-        !Blasius Solution
-        real(pv), intent(in)  :: t
-        real(pv), intent(in)  :: x(3)
-        real(pv), intent(out) :: SV(3)
-
-        SV(1) = x(2)
-        SV(2) = x(3)
-        SV(3) = -0.50d0 * x(1) * x(3)
-    end subroutine system_of_odes
-
-
-
-
 !--------------------------------------------------------------
 !                    **ODE SOLVERS **
 
