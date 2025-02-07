@@ -1,0 +1,51 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Main",
+            "type": "shell",
+            "command": "make clean; make main; ./main",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            //"detail": "Build the main executable using the Makefile"
+        },
+
+        {
+            "label": "Run Test",
+            "type": "shell",
+            "command": "make clean; make test; ./test",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            //"detail": "Build the test executable using the Makefile"
+        },
+
+        {
+            "label": "Run Test 2",
+            "type": "shell",
+            "command": "make clean; make test2; ./test2",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            //"detail": "Build the test2 executable using the Makefile"
+        },
+
+
+        //------------------------------------------------------------------------------------------------------
+        //   ** SETTING UP A BUILD TASK ** 
+        //------------------------------------------------------------------------------------------------------
+        // How to compile code using tasks in VSCode but setting it up such that you can put the commands that
+        // the compiler needs to run on separate lines. This is useful for long commands that are hard to read.
+
+        // Use ctrl + shift + b to bring up all the tasks that are specifically for building fortran code.
+        {
+            "label": "Compile Test 2",
+            "type": "shell",
+            "command": "gfortran",
+            "args": [
+                "-o",
+                "test2",
+                "test2.f90",
+            ],
+            "group": "build", // This group is used to determine the order in which tasks are run
+        }
+    ]
+}
