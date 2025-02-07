@@ -21,9 +21,9 @@ program main
     print*," " !Spacer
     elapsed_time = toc()
     if(elapsed_time > 60.0_pv) then
-        write(*,"(A, ES15.4)") "Elapsed time = ", elapsed_time/60.0_pv, " minutes"
+        write(*,"(A, ES12.4, A)") "Elapsed time = ", elapsed_time/60.0_pv, " minutes"
     else
-        write(*,"(A, ES15.4)") "Elapsed time = ", elapsed_time, " seconds"
+        write(*,"(A, ES12.4, A)") "Elapsed time = ", elapsed_time, " seconds"
     end if
 
     contains
