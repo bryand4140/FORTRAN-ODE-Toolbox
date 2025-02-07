@@ -14,6 +14,11 @@ module MOD_ODE_Toolbox
     !Makes the interface available to other modules and programs:
     public :: ODE_System
 
+    !Public Solvers:
+    public :: ODE_Numerical_Solve_RK4
+    public :: ODE_Numerical_Solve_RK4_Adaptive
+    public :: ODE_Numerical_Solve_VSS
+
 
     !Interface for the different equation sets used with the SNLE Solver.
     abstract interface
