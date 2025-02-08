@@ -22,10 +22,7 @@ The following module files are used:
 3. `MOD_ODE_Toolbox.f90`
 4. `MOD_Select_Kind.f90`
 
-The primary file is `MOD_ODE_Toolbox.f90`. All ODE solvers and necessary helper subroutines/functions are contained here. A  
-separate module, `MOD_ODE_Systems.f90`, contains examples of various ODE systems that may be useful. Using this module is not required  
-since the ODE system may be defined in any convenient location that has access to the abstract interface shown in `MOD_ODE_Toolbox.f90`.  
-A module file with data input/export subroutines, `MOD_IO_Toolbox.f90`, is also provided for convenience.  
+The primary file is `MOD_ODE_Toolbox.f90`. All ODE solvers and necessary helper subroutines/functions are contained here. A separate module, `MOD_ODE_Systems.f90`, contains examples of various ODE systems that may be useful. Using this module is not required since the ODE system may be defined in any convenient location that has access to the abstract interface shown in `MOD_ODE_Toolbox.f90`. A module file with data input/export subroutines, `MOD_IO_Toolbox.f90`, is also provided for convenience.  
 
 ## Methods
 The code currently contains the following solvers:
