@@ -36,3 +36,7 @@ The code currently contains the following solvers:
 Detailed documentation on how to use the codes is provided in the PDF *FORTRAN_ODE_Toolbox.pdf*.
 
 
+## Future Features
+1. Implicit solvers for stiff systems.
+2. Boundary value solvers. 
+
