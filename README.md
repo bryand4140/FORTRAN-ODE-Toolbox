@@ -5,18 +5,15 @@ A collection of codes for solving linear and nonlinear ordinary differential equ
 A work in progress.  
 
 ## Compiling and Executing
-A Makefile is provided to build the code and has been written to be compatible with Windows and Linux OS. The Makefile has been  
-configured to use `main` or `test` as the default executable. To build the code, use:
+A Makefile is provided to build the code and has been written to be compatible with Windows and Linux OS. The Makefile has been configured to use `main` or `test` as the default executable. To build the code, use:
 ```
 make main.exe
 ```
-By default, the code is built with double precision (`real64`). This can be changed within the module `MOD_Select_Real_Kind.f90`.  
-After the code is built, module and executable files will be placed in a build directory. Use:
+By default, the code is built with double precision (`real64`). This can be changed within the module `MOD_Select_Real_Kind.f90`. After the code is built, module and executable files will be placed in a build directory. Use:
 ````
 ./main
 ````
-to run the code with your main program. Additionally, an `fpm.toml` file has been provided for users of the Fortran Package  
-Manager (FPM) [Fortran Package Manager](https://github.com/fortran-lang/fpm).  
+to run the code with your main program. Additionally, an `fpm.toml` file has been provided for users of the Fortran Package Manager (FPM) [Fortran Package Manager](https://github.com/fortran-lang/fpm).  
 
 ## Repository Structure
 The following module files are used:
