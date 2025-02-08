@@ -17,6 +17,7 @@ program main
     real(pv) :: span(2), tolerance
     integer :: n_sys, status
     real(pv), allocatable :: IC(:), solution_matrix(:,:)
+    real(pv), parameter :: pi = 3.14159265358979323846_pv
 
 
     call tic()
@@ -31,7 +32,7 @@ program main
 
     allocate(IC(n_sys))
 
-    IC = [0.5_pv, 0.0_pv]
+    IC = [pi/4.0, 0.0_pv]
     
     CALL ODE_Numerical_Solve_RK4_Adaptive(span, n_sys, IC, ode_ptr,&
     solution_matrix, status, tolerance)
@@ -46,6 +47,10 @@ program main
     else
         print*,"ODE Numerical Solve RK4 Adaptive: Failure"
     end if
+
+
+    !----------------------------------------------------------------
+    
 
 
     print*,"==================================================="
