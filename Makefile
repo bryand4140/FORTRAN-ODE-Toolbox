@@ -13,6 +13,7 @@ BUILD_DIR = build
 # Source module files (in the order needed for compile)
 MODULES = $(MODULES_DIR)/MOD_Select_Kind.f90 \
 		  $(MODULES_DIR)/MOD_ODE_Systems.f90 \
+		  $(MODULES_DIR)/MOD_IO_Toolbox.f90 \
 		  $(MODULES_DIR)/MOD_ODE_Toolbox.f90
 
 # Object files for modules

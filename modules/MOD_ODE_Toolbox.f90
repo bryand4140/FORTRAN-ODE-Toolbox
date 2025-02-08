@@ -159,6 +159,9 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
     ! Safety factor and a minimum allowed dt
     safety = 0.9_pv
     dt_min = 1.0e-12_pv
+
+    ! Allocate temporary arrays of size n_sys.
+    allocate(x(n_sys), x_big(n_sys), x_half(n_sys), x_temp(n_sys))
     
     ! Set initial conditions.
     t  = indp_var_span(1)
@@ -171,9 +174,7 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
         status = -2
         return
     end if
-    
-    ! Allocate temporary arrays of size n_sys.
-    allocate(x(n_sys), x_big(n_sys), x_half(n_sys), x_temp(n_sys))
+
     
     ! Allocate an initial solution matrix.
     capacity = 100
