@@ -25,6 +25,8 @@ program main
     print*,"==================================================="
     print*,"=============> ODE Toolbox Main <=================="
 
+    !----------------------------------------------------------------
+    ! Solve the pendulum ODE system using the RK4 Adaptive method.
     ode_ptr => Pendulum_ODE
     n_sys = 2
     span = [0.0_pv, 5.0_pv]
@@ -50,6 +52,7 @@ program main
 
 
     !----------------------------------------------------------------
+    ! Solve the damped harmonic oscillator ODE system using the RK4 Adaptive method.
     ode_ptr => Damped_Harmonic_Oscillator
 
     n_sys = 2
