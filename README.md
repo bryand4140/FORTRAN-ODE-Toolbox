@@ -13,7 +13,7 @@ By default, the code is built with double precision (`real64`). This can be chan
 ````
 ./main
 ````
-to run the code with your main program. Additionally, an `fpm.toml` file has been provided for users of the Fortran Package Manager (FPM) [Fortran Package Manager](https://github.com/fortran-lang/fpm).  
+to run the code with your main program. 
 
 ## Repository Structure
 The following module files are used:
