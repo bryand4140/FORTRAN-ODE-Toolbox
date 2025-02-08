@@ -6,7 +6,7 @@ module MOD_ODE_Toolbox
 
     private
 
-    !Declair Public Subroutines/Functions:
+    !Declare Public Subroutines/Functions:
     integer, public :: start_time
     integer, public :: count_rate
     public :: tic, toc
@@ -290,7 +290,7 @@ subroutine ODE_Numerical_Solve_VSS(indp_var_span, n_sys, initial_conds, &
     ! General Description:
     ! ODE Numberical Solve Variable Step Size (VSS) subroutine
     ! This subroutine solves a system of ODEs using an adaptive step size control method.
-    ! It is designed to handle moderatly siff ODEs and uses the Dormand-Prince RK5 adaptive step method. 
+    ! It is designed to handle moderately stiff ODEs and uses the Dormand-Prince RK5 adaptive step method. 
     
     !The solver requires the following inputs:
     ! 1. indp_var_span = [x_lower, x_upper] - this array of two values specify the lower and 
