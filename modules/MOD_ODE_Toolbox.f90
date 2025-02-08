@@ -18,6 +18,7 @@ module MOD_ODE_Toolbox
     public :: ODE_Numerical_Solve_RK4
     public :: ODE_Numerical_Solve_RK4_Adaptive
     public :: ODE_Numerical_Solve_VSS
+    public :: linspace
 
 
     !Interface for the different equation sets used with the SNLE Solver.
@@ -120,7 +121,8 @@ subroutine ODE_Numerical_Solve_RK4(indp_var_span, n_sys, initial_conds, ODE_Syst
 end subroutine ODE_Numerical_Solve_RK4
 
 
-subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds, ODE_System_ptr, solution_matrix, status, tolerance)
+subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds, ODE_System_ptr,&
+     solution_matrix, status, tolerance)
     !------------------------------------------------------------
     ! Adaptive RK4 solver subroutine.
     !
@@ -233,53 +235,54 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
         solution_matrix = solution_matrix(:, 1:current_step)
     end if
     
-    status = 0
+    status = 0  ! Indicate success.
 
-    contains
-    subroutine extend_solution_matrix(sol_mat, old_capacity, new_capacity)
-        implicit none
-        real(pv), allocatable, intent(inout) :: sol_mat(:, :)
-        integer, intent(in) :: old_capacity, new_capacity
-        real(pv), allocatable :: temp(:, :)
-        integer :: nrows
-        
-        nrows = size(sol_mat, 1)
-        allocate(temp(nrows, new_capacity))
-        temp(:, 1:old_capacity) = sol_mat
-        deallocate(sol_mat)
-        ! Use move_alloc (Fortran 2003) to avoid copying again.
-        call move_alloc(temp, sol_mat)
-    end subroutine extend_solution_matrix
-    
-    
-    subroutine RK4_Step(dt, n_sys, t, x, ODE_System_ptr, x_new)
-        !------------------------------------------------------------
-        ! Internal subroutine to take one RK4 step of size dt.
-        ! Given (t,x) it computes x_new at time t+dt.
-        !------------------------------------------------------------
-        real(pv), intent(in)    :: dt, t
-        integer, intent(in)     :: n_sys
-        real(pv), intent(in)    :: x(n_sys)
-        procedure(ODE_System), pointer, intent(in) :: ODE_System_ptr
-        real(pv), intent(out)   :: x_new(n_sys)
-        
-        real(pv) :: k1(n_sys), k2(n_sys), k3(n_sys), k4(n_sys)
-        real(pv) :: x_temp(n_sys)
-        
-        call ODE_System_ptr(n_sys, t, x, k1)
-        
-        x_temp = x + 0.5_pv * dt * k1
-        call ODE_System_ptr(n_sys, t + 0.5_pv * dt, x_temp, k2)
-        
-        x_temp = x + 0.5_pv * dt * k2
-        call ODE_System_ptr(n_sys, t + 0.5_pv * dt, x_temp, k3)
-        
-        x_temp = x + dt * k3
-        call ODE_System_ptr(n_sys, t + dt, x_temp, k4)
-        
-        x_new = x + dt / 6.0_pv * ( k1 + 2.0_pv * k2 + 2.0_pv * k3 + k4 )
-    end subroutine RK4_Step
 end subroutine ODE_Numerical_Solve_RK4_Adaptive
+
+
+subroutine extend_solution_matrix(sol_mat, old_capacity, updated_capacity)
+    implicit none
+    real(pv), allocatable, intent(inout) :: sol_mat(:, :)
+    integer, intent(in) :: old_capacity, updated_capacity
+    real(pv), allocatable :: temp(:, :)
+    integer :: nrows
+
+    nrows = size(sol_mat, 1)
+    allocate(temp(nrows, updated_capacity))
+    temp(:, 1:old_capacity) = sol_mat
+    deallocate(sol_mat)
+    ! Use move_alloc (Fortran 2003) to avoid copying again.
+    call move_alloc(temp, sol_mat)
+end subroutine extend_solution_matrix
+
+
+subroutine RK4_Step(time_step, n_system, time, SV, ode_ptr, x_new)
+    !------------------------------------------------------------
+    ! Internal subroutine to take one RK4 step of size time_step.
+    ! Given (time,SV) it computes x_new at time time+time_step.
+    !------------------------------------------------------------
+    real(pv), intent(in)    :: time_step, time
+    integer, intent(in)     :: n_system
+    real(pv), intent(in)    :: SV(n_system)
+    procedure(ODE_System), pointer, intent(in) :: ode_ptr
+    real(pv), intent(out)   :: x_new(n_system)
+    
+    real(pv) :: k1(n_system), k2(n_system), k3(n_system), k4(n_system)
+    real(pv) :: x_temporary(n_system)
+    
+    call ode_ptr(n_system, time, SV, k1)
+    
+    x_temporary = SV + 0.5_pv * time_step * k1
+    call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k2)
+    
+    x_temporary = SV + 0.5_pv * time_step * k2
+    call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k3)
+    
+    x_temporary = SV + time_step * k3
+    call ode_ptr(n_system, time + time_step, x_temporary, k4)
+    
+    x_new = SV + time_step / 6.0_pv * ( k1 + 2.0_pv * k2 + 2.0_pv * k3 + k4 )
+end subroutine RK4_Step
 
 
 subroutine ODE_Numerical_Solve_VSS(indp_var_span, n_sys, initial_conds, &
@@ -496,6 +499,61 @@ subroutine ODE_Numerical_Solve_VSS(indp_var_span, n_sys, initial_conds, &
     deallocate(solution, indp_var_array)
 
 end subroutine ODE_Numerical_Solve_VSS
+
+
+subroutine expand_arrays(solution, indp_var_array)
+    ! General Description: This subroutine expands the size of the solution matrix and the independent variable array.
+    ! The new size is twice the current size.
+    ! The expanded elements are initialized to zero.
+    ! Example: If the original size is 1000, the new size will be 2000.
+
+    implicit none
+    real(pv), allocatable, intent(inout) :: solution(:,:), indp_var_array(:)
+    integer :: new_size
+
+    new_size = size(solution, 1) * 2
+
+    call resize_array(solution, new_size)
+    call resize_vector(indp_var_array, new_size)
+end subroutine expand_arrays
+
+
+subroutine resize_array(array, new_size)
+    ! General Description: This subroutine resizes a 2D array to a new size.
+    ! Example: If the original array is [[1, 2], [3, 4]] and the new size is (3, 2),
+    ! the resized array will be [[1, 2], [3, 4], [0, 0]].
+    
+    implicit none
+    real(pv), allocatable, intent(inout) :: array(:,:)
+    integer, intent(in) :: new_size
+    real(pv), allocatable :: temp(:,:)
+    integer :: old_size
+
+    old_size = size(array, 1)
+    allocate(temp(new_size, size(array, 2)))
+    temp(1:old_size, :) = array
+    deallocate(array)
+    array = temp
+end subroutine resize_array
+
+
+subroutine resize_vector(vector, new_size)
+    ! General Description: This subroutine resizes a 1D vector to a new size.
+    ! Example: If the original vector is [1, 2, 3] and the new size is 5,
+    ! the resized vector will be [1, 2, 3, 0, 0].
+
+    implicit none
+    real(pv), allocatable, intent(inout) :: vector(:)
+    integer, intent(in) :: new_size
+    real(pv), allocatable :: temp(:)
+    integer :: old_size
+
+    old_size = size(vector)
+    allocate(temp(new_size))
+    temp(1:old_size) = vector
+    deallocate(vector)
+    vector = temp
+end subroutine resize_vector
 
 !--------------------------------------------------------------
 !          ** Useful Array Generation Subroutines **
