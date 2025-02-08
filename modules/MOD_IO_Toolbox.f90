@@ -1,4 +1,4 @@
-module IO_Toolbox
+module MOD_IO_Toolbox
     use MOD_Select_Kind, only: pv
 
     implicit none
@@ -176,4 +176,4 @@ end subroutine read_matrix
 
 
 
-end module IO_Toolbox
+end module MOD_IO_Toolbox

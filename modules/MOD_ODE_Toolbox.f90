@@ -121,8 +121,8 @@ subroutine ODE_Numerical_Solve_RK4(indp_var_span, n_sys, initial_conds, ODE_Syst
 end subroutine ODE_Numerical_Solve_RK4
 
 
-subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds, ODE_System_ptr,&
-     solution_matrix, status, tolerance)
+subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds, ODE_System_ptr, &
+    solution_matrix, status, tolerance)
     !------------------------------------------------------------
     ! Adaptive RK4 solver subroutine.
     !
@@ -130,14 +130,17 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
     !   indp_var_span   - Two-element array: [start, end] of independent variable.
     !   n_sys           - Number of ODEs in the system.
     !   initial_conds   - Array of initial conditions (dimension n_sys).
-    !   ODE_System_ptr  - Procedure pointer to the ODE system (matching the abstract interface).
+    !   ODE_System_ptr  - Procedure pointer to the ODE system.
     !   tolerance       - Local error tolerance for each step.
     !
     ! Outputs:
-    !   solution_matrix - Allocatable solution array of size (n_sys+1, n_steps)
-    !                     where row 1 holds the independent variable and
-    !                     rows 2..n_sys+1 hold the state variables.
-    !   status          - 0 on success; nonzero for failure (e.g., dt too small).
+    !   solution_matrix - Allocatable solution array of size (n_steps, n_sys+1)
+    !                     where column 1 holds the independent variable and
+    !                     columns 2..n_sys+1 hold the state variables.
+    !   status          - 0 on success
+    !                   - 1 if the solution matrix is too small
+    !                   - 2 if dt is non-positive
+    !                   - 3 if dt becomes too small
     !------------------------------------------------------------
     implicit none
     ! Input arguments
@@ -150,19 +153,19 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
     ! Output arguments
     integer, intent(out)    :: status
     real(pv), allocatable, intent(out) :: solution_matrix(:, :)
-    
+
     ! Local variables
     integer :: capacity, current_step, new_capacity
     real(pv) :: t, tf, dt, dt_new, err, safety, dt_min
     real(pv), allocatable :: x(:), x_big(:), x_half(:), x_temp(:)
-    
+
     ! Safety factor and a minimum allowed dt
     safety = 0.9_pv
     dt_min = 1.0e-12_pv
 
     ! Allocate temporary arrays of size n_sys.
     allocate(x(n_sys), x_big(n_sys), x_half(n_sys), x_temp(n_sys))
-    
+
     ! Set initial conditions.
     t  = indp_var_span(1)
     tf = indp_var_span(2)
@@ -171,119 +174,128 @@ subroutine ODE_Numerical_Solve_RK4_Adaptive(indp_var_span, n_sys, initial_conds,
     ! Initial guess for dt: for example, 1/100th of the interval.
     dt = (tf - t) / 100.0_pv
     if (dt <= 0.0_pv) then
-        status = -2
+        status = 2
         return
     end if
 
-    
     ! Allocate an initial solution matrix.
-    capacity = 100
-    allocate(solution_matrix(n_sys+1, capacity))
+    capacity = 500
+    ! Now the matrix has 'capacity' rows and (n_sys+1) columns.
+    allocate(solution_matrix(capacity, n_sys+1))
     current_step = 1
-    solution_matrix(1, current_step)     = t
-    solution_matrix(2:n_sys+1, current_step) = x
+    solution_matrix(current_step, 1)     = t
+    solution_matrix(current_step, 2:n_sys+1) = x
 
-    ! Main adaptive time stepping loop.
-    do while (t < tf)
-        ! Adjust dt if the next step overshoots the final time.
-        if (t + dt > tf) dt = tf - t
+   ! Main adaptive time stepping loop.
+   do while (t < tf)
+       ! Adjust dt if the next step overshoots the final time.
+       if (t + dt > tf) dt = tf - t
 
-        !--- Compute one full RK4 step over dt ---
-        call RK4_Step(dt, n_sys, t, x, ODE_System_ptr, x_big)
-        
-        !--- Compute two half-steps (dt/2 each) ---
-        call RK4_Step(dt/2.0_pv, n_sys, t, x, ODE_System_ptr, x_temp)
-        call RK4_Step(dt/2.0_pv, n_sys, t + dt/2.0_pv, x_temp, ODE_System_ptr, x_half)
-        
-        !--- Estimate the local error ---
-        err = maxval( abs( x_big - x_half ) )
-        
-        if (err <= tolerance) then
-            ! Accept the step.
-            t = t + dt
-            x = x_half  ! Use the more accurate (two half-step) result.
-            
-            ! Increment the solution counter and save the new step.
-            current_step = current_step + 1
-            if (current_step > capacity) then
-                ! Increase the capacity (for example, double it).
-                new_capacity = capacity * 2
-                call extend_solution_matrix(solution_matrix, capacity, new_capacity)
-                capacity = new_capacity
-            end if
-            solution_matrix(1, current_step)     = t
-            solution_matrix(2:n_sys+1, current_step) = x
-            
-            ! Compute new step size. If error is zero, try increasing dt.
-            if (err == 0.0_pv) then
-                dt_new = dt * 2.0_pv
+       !--- Compute one full RK4 step over dt ---
+       call RK4_Step(dt, n_sys, t, x, ODE_System_ptr, x_big)
+       
+       !--- Compute two half-steps (dt/2 each) ---
+       call RK4_Step(dt/2.0_pv, n_sys, t, x, ODE_System_ptr, x_temp)
+       call RK4_Step(dt/2.0_pv, n_sys, t + dt/2.0_pv, x_temp, ODE_System_ptr, x_half)
+       
+       !--- Estimate the local error ---
+       err = maxval( abs( x_big - x_half ) )
+       
+       if (err <= tolerance) then
+           ! Accept the step.
+           t = t + dt
+           x = x_half  ! Use the more accurate (two half-step) result.
+           
+           ! Increment the solution counter and save the new step.
+           current_step = current_step + 1
+           if (current_step > capacity) then
+               ! Increase the capacity (for example, double it).
+               new_capacity = capacity * 2
+               call extend_solution_matrix(solution_matrix, capacity, new_capacity)
+               capacity = new_capacity
+           end if
+           if (current_step <= size(solution_matrix, 1)) then
+                solution_matrix(current_step, 1)     = t
+                solution_matrix(current_step, 2:n_sys+1) = x
             else
-                dt_new = dt * safety * (tolerance / err)**(0.2_pv)
-            end if
-            dt = max(dt_new, dt_min)
-        else
-            ! Reject the step; reduce dt and try again.
-            dt = dt * safety * (tolerance / err)**(0.2_pv)
-            if (dt < dt_min) then
-                status = -3  ! dt has become too small.
+                print *, "Error: Array bounds exceeded when storing initial conditions"
+                status = 1
                 return
             end if
-        end if
-    end do
-    
-    ! Trim the solution matrix to the actual number of steps taken.
-    if (current_step < capacity) then
-        solution_matrix = solution_matrix(:, 1:current_step)
+           
+           ! Compute new step size. If error is zero, try increasing dt.
+           if (err == 0.0_pv) then
+               dt_new = dt * 2.0_pv
+           else
+               dt_new = dt * safety * (tolerance / err)**(0.2_pv)
+           end if
+           dt = max(dt_new, dt_min)
+       else
+           ! Reject the step; reduce dt and try again.
+           dt = dt * safety * (tolerance / err)**(0.2_pv)
+           if (dt < dt_min) then
+               status = 3  ! dt has become too small.
+               return
+           end if
+       end if
+   end do
+   
+   if (current_step < capacity) then
+        block 
+            real(pv), allocatable :: temp(:,:)
+            allocate(temp(current_step, n_sys+1))
+            temp = solution_matrix(1:current_step, :)
+            call move_alloc(temp, solution_matrix)
+        end block
     end if
-    
-    status = 0  ! Indicate success.
+   
+   status = 0  ! Indicate success.
+
+   contains
+   subroutine RK4_Step(time_step, n_system, time, SV, ode_ptr, x_new)
+        !------------------------------------------------------------
+        ! Internal subroutine to take one RK4 step of size time_step.
+        ! Given (time,SV) it computes x_new at time time+time_step.
+        !------------------------------------------------------------
+        real(pv), intent(in)    :: time_step, time
+        integer, intent(in)     :: n_system
+        real(pv), intent(in)    :: SV(n_system)
+        procedure(ODE_System), pointer, intent(in) :: ode_ptr
+        real(pv), intent(out)   :: x_new(n_system)
+        
+        real(pv) :: k1(n_system), k2(n_system), k3(n_system), k4(n_system)
+        real(pv) :: x_temporary(n_system)
+        
+        call ode_ptr(n_system, time, SV, k1)
+        
+        x_temporary = SV + 0.5_pv * time_step * k1
+        call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k2)
+        
+        x_temporary = SV + 0.5_pv * time_step * k2
+        call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k3)
+        
+        x_temporary = SV + time_step * k3
+        call ode_ptr(n_system, time + time_step, x_temporary, k4)
+        
+        x_new = SV + time_step / 6.0_pv * ( k1 + 2.0_pv * k2 + 2.0_pv * k3 + k4 )
+    end subroutine RK4_Step
+
+
+    subroutine extend_solution_matrix(sol_mat, old_capacity, updated_capacity)
+        implicit none
+        real(pv), allocatable, intent(inout) :: sol_mat(:, :)
+        integer, intent(in) :: old_capacity, updated_capacity
+        real(pv), allocatable :: temp(:, :)
+        integer :: ncols
+        
+        ncols = size(sol_mat, 2)  ! Get number of columns
+        allocate(temp(updated_capacity, ncols))  ! Allocate with new capacity
+        temp(1:old_capacity, :) = sol_mat(1:old_capacity, :)  ! Copy existing data
+        deallocate(sol_mat)
+        call move_alloc(temp, sol_mat)
+    end subroutine extend_solution_matrix
 
 end subroutine ODE_Numerical_Solve_RK4_Adaptive
-
-
-subroutine extend_solution_matrix(sol_mat, old_capacity, updated_capacity)
-    implicit none
-    real(pv), allocatable, intent(inout) :: sol_mat(:, :)
-    integer, intent(in) :: old_capacity, updated_capacity
-    real(pv), allocatable :: temp(:, :)
-    integer :: nrows
-
-    nrows = size(sol_mat, 1)
-    allocate(temp(nrows, updated_capacity))
-    temp(:, 1:old_capacity) = sol_mat
-    deallocate(sol_mat)
-    ! Use move_alloc (Fortran 2003) to avoid copying again.
-    call move_alloc(temp, sol_mat)
-end subroutine extend_solution_matrix
-
-
-subroutine RK4_Step(time_step, n_system, time, SV, ode_ptr, x_new)
-    !------------------------------------------------------------
-    ! Internal subroutine to take one RK4 step of size time_step.
-    ! Given (time,SV) it computes x_new at time time+time_step.
-    !------------------------------------------------------------
-    real(pv), intent(in)    :: time_step, time
-    integer, intent(in)     :: n_system
-    real(pv), intent(in)    :: SV(n_system)
-    procedure(ODE_System), pointer, intent(in) :: ode_ptr
-    real(pv), intent(out)   :: x_new(n_system)
-    
-    real(pv) :: k1(n_system), k2(n_system), k3(n_system), k4(n_system)
-    real(pv) :: x_temporary(n_system)
-    
-    call ode_ptr(n_system, time, SV, k1)
-    
-    x_temporary = SV + 0.5_pv * time_step * k1
-    call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k2)
-    
-    x_temporary = SV + 0.5_pv * time_step * k2
-    call ode_ptr(n_system, time + 0.5_pv * time_step, x_temporary, k3)
-    
-    x_temporary = SV + time_step * k3
-    call ode_ptr(n_system, time + time_step, x_temporary, k4)
-    
-    x_new = SV + time_step / 6.0_pv * ( k1 + 2.0_pv * k2 + 2.0_pv * k3 + k4 )
-end subroutine RK4_Step
 
 
 subroutine ODE_Numerical_Solve_VSS(indp_var_span, n_sys, initial_conds, &
@@ -501,6 +513,8 @@ subroutine ODE_Numerical_Solve_VSS(indp_var_span, n_sys, initial_conds, &
 
 end subroutine ODE_Numerical_Solve_VSS
 
+!--------------------------------------------------------------
+!                 ** Helper Subroutines **
 
 subroutine expand_arrays(solution, indp_var_array)
     ! General Description: This subroutine expands the size of the solution matrix and the independent variable array.

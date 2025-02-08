@@ -6,6 +6,12 @@ program main
 
     implicit none
 
+    !=======================================================
+    !                    ** CONTROLS **
+    logical, parameter :: export_solutions = .true.
+
+    !=======================================================
+
     real(pv) :: elapsed_time
     procedure(ODE_System), pointer :: ode_ptr => null()
     real(pv) :: span(2), tolerance
@@ -24,11 +30,19 @@ program main
     tolerance = 1.0e-6_pv
 
     allocate(IC(n_sys))
+
+    IC = [0.5_pv, 0.0_pv]
+    
     CALL ODE_Numerical_Solve_RK4_Adaptive(span, n_sys, IC, ode_ptr,&
     solution_matrix, status, tolerance)
 
     if(status == 0) then
         print*,"ODE Numerical Solve RK4 Adaptive: Success"
+
+        !Export the solutions to a csv file for plotting:
+        if(export_solutions) then
+            call write_matrix(solution_matrix, "ODE_Pendulum_Solution.csv",scientific=.true.)
+        end if
     else
         print*,"ODE Numerical Solve RK4 Adaptive: Failure"
     end if
