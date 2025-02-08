@@ -50,7 +50,27 @@ program main
 
 
     !----------------------------------------------------------------
+    ode_ptr => Damped_Harmonic_Oscillator
+
+    n_sys = 2
+    span = [0.0_pv, 25.0_pv]
+    tolerance = 1.0e-6_pv
     
+    IC = [1.0_pv, 0.5_pv]
+
+    CALL ODE_Numerical_Solve_RK4_Adaptive(span, n_sys, IC, ode_ptr,&
+    solution_matrix, status, tolerance)
+
+    if(status == 0) then
+        print*,"ODE Numerical Solve RK4 Adaptive: Success"
+
+        !Export the solutions to a csv file for plotting:
+        if(export_solutions) then
+            call write_matrix(solution_matrix, "ODE_Damped_Harmonic_Oscillator_Solution.csv",scientific=.true.)
+        end if
+    else
+        print*,"ODE Numerical Solve RK4 Adaptive: Failure"
+    end if
 
 
     print*,"==================================================="

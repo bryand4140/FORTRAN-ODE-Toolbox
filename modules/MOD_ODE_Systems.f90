@@ -68,6 +68,7 @@ subroutine Damped_Harmonic_Oscillator(n, t, x, xdot)
     real(pv), parameter :: omega = 1.0_pv    ! Natural frequency
 
     if (n < 2) then
+        print*, "Error: At least two state variables are required."
         return  ! Ensure that at least two state variables are provided.
     end if
 
