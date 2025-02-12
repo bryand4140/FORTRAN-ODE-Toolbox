@@ -37,6 +37,248 @@ contains
 !--------------------------------------------------------------
 !                    **ODE SOLVERS **
 
+subroutine RK4_Fixed_Step(indp_var_array, n_sys, initial_conds, ODE_System_ptr, solution_matrix, status)
+    !-----------------------------------------------------------------------
+    ! General Description:
+    !   A 4th-order Runge-Kutta integrator with a fixed "base" step size h.
+    !   We integrate from indp_var_array(1) to indp_var_array(end),
+    !   subdividing each interval [indp_var_array(i-1), indp_var_array(i)]
+    !   into multiple steps if needed. The final sub-step is adjusted to land
+    !   exactly on indp_var_array(i).
+    !
+    ! Inputs:
+    !  - indp_var_array(:):  The array of independent-variable points where
+    !       you want the solution. Must be monotonically increasing. 
+    !  - n_sys:             Number of ODEs (size of state vector).
+    !  - initial_conds(n_sys):  Initial condition for each state variable.
+    !  - ODE_System_ptr:    Procedure pointer to a subroutine that computes
+    !       dx_dt = f(t, x).  (Signature must match the abstract interface.)
+    !
+    ! Outputs:
+    !  - solution_matrix(:,:):  A 2D array storing the solution.  Its first
+    !       column is t-values, columns 2..(n_sys+1) are the states.
+    !  - status:  Returns 0 if successful.
+    !
+    !-----------------------------------------------------------------------
+    implicit none
+
+    !-----------------------------------------------------------------------
+    ! Inputs:
+    real(pv), intent(in),  dimension(:) :: indp_var_array
+    integer, intent(in)                 :: n_sys
+    real(pv), intent(in),  dimension(n_sys) :: initial_conds
+    procedure(ODE_System), pointer       :: ODE_System_ptr
+
+    ! Outputs:
+    real(pv), allocatable, intent(out) :: solution_matrix(:,:)
+    integer,               intent(out) :: status
+
+    ! Local variables
+    integer :: num_steps, max_steps
+    integer :: i, step
+    real(pv) :: h, t, t_end, h_local
+    real(pv), allocatable :: x(:)
+    real(pv), allocatable :: k1(:), k2(:), k3(:), k4(:), dx_dt(:)
+    real(pv), allocatable :: temp_solution(:,:)
+
+    !-----------------------------------------------------------------------
+    ! Error checking
+    if (size(indp_var_array) < 2) then
+        status = 2
+        write(*,*) "ERROR: indp_var_array must have at least two points."
+        return
+    end if
+
+    !Check to see if the elements of indp_var_array are monotonically increasing
+    do i = 2, size(indp_var_array)
+        if (indp_var_array(i) <= indp_var_array(i-1)) then
+            status = 3
+            write(*,*) "ERROR: indp_var_array must be monotonically increasing."
+            return
+        end if
+    end do
+
+    !-----------------------------------------------------------------------
+    ! 1. Basic setup and array allocations
+    !-----------------------------------------------------------------------
+    num_steps = size(indp_var_array)
+
+    ! Base step size h is determined from first two points (Assumes uniform spacing):
+    h = indp_var_array(2) - indp_var_array(1)
+
+    ! Maximum number of sub-steps = 100 per interval
+    max_steps = 1 + 100*(num_steps - 1)
+
+    allocate(x(n_sys))
+    allocate(k1(n_sys), k2(n_sys), k3(n_sys), k4(n_sys), dx_dt(n_sys))
+
+    ! Accumulate the solution in temp_solution, then trim at the end.
+    allocate(temp_solution(max_steps, n_sys + 1))
+
+    !-----------------------------------------------------------------------
+    ! 2. Initialize
+    !-----------------------------------------------------------------------
+    x = initial_conds          ! State vector at the initial point
+    step = 1                   ! First entry in row 1
+    temp_solution(step, 1) = indp_var_array(1)   ! t
+    temp_solution(step, 2:)   = x                ! states
+
+    !-----------------------------------------------------------------------
+    ! 3. Main loop over intervals in indp_var_array
+    !-----------------------------------------------------------------------
+    do i = 2, num_steps
+        t     = indp_var_array(i-1)
+        t_end = indp_var_array(i)
+
+        ! Integrate from t to t_end using multiple steps of size h
+        do while (t < t_end)
+
+            ! If we're about to overshoot t_end, reduce step size
+            if (t + h > t_end) then
+                h_local = t_end - t
+            else
+                h_local = h
+            end if
+
+            ! Evaluate derivative at current state
+            call ODE_System_ptr(n_sys, t, x, dx_dt)
+            k1 = h_local * dx_dt
+
+            ! Evaluate derivative at midpoint #1
+            call ODE_System_ptr(n_sys, t + h_local/2._pv, x + k1/2._pv, dx_dt)
+            k2 = h_local * dx_dt
+
+            ! Evaluate derivative at midpoint #2
+            call ODE_System_ptr(n_sys, t + h_local/2._pv, x + k2/2._pv, dx_dt)
+            k3 = h_local * dx_dt
+
+            ! Evaluate derivative at full step
+            call ODE_System_ptr(n_sys, t + h_local, x + k3, dx_dt)
+            k4 = h_local * dx_dt
+
+            ! Update the state
+            x = x + (k1 + 2._pv*k2 + 2._pv*k3 + k4) / 6._pv
+
+            ! Advance time
+            t = t + h_local
+
+            ! Increment solution index
+            step = step + 1
+            if (step > max_steps) then
+                ! We ran out of allocated rows => error or reallocate
+                status = 1
+                write(*,*) "ERROR: Exceeded maximum sub-steps = ", max_steps
+                return
+            end if
+
+            ! Store results
+            temp_solution(step, 1)  = t
+            temp_solution(step, 2:) = x
+
+        end do  ! while (t < t_end)
+    end do  ! i=2..num_steps
+
+    !-----------------------------------------------------------------------
+    ! 4. Trim and output final solution
+    !-----------------------------------------------------------------------
+    ! 'step' is now the total number of stored rows
+    allocate(solution_matrix(step, n_sys + 1))
+    solution_matrix(:, :) = temp_solution(1:step, :)
+
+    ! We can safely deallocate local arrays now
+    deallocate(x, k1, k2, k3, k4, dx_dt, temp_solution)
+
+    ! Indicate success
+    status = 0
+
+end subroutine RK4_Fixed_Step
+
+
+SUBROUTINE RK4_Fixed_Step2(y0, y_end, h, initial_conds, ODE_System_ptr, solution_matrix, status)
+    IMPLICIT NONE
+    
+    ! Input parameters
+    REAL(pv), INTENT(IN) :: y0                    ! Initial independent variable
+    REAL(pv), INTENT(IN) :: y_end                 ! Final independent variable
+    REAL(pv), INTENT(IN) :: h                     ! Step size
+    REAL(pv), INTENT(IN) :: initial_conds(:)      ! Initial conditions array
+    PROCEDURE(ODE_System), INTENT(IN), POINTER :: ODE_System_ptr ! Pointer to the ODE system function
+    
+    ! Outputs
+    REAL(pv), ALLOCATABLE, INTENT(OUT) :: solution_matrix(:,:)  ! Solution matrix (time steps x (system_size + 1))
+    INTEGER, INTENT(OUT) :: status                ! Status flag for error handling
+    
+    ! Local variables
+    INTEGER :: i, system_size
+    REAL(pv), ALLOCATABLE :: time_points(:)
+    REAL(pv), ALLOCATABLE :: y(:), k1(:), k2(:), k3(:), k4(:), temp(:)
+    
+    ! Initialize
+    system_size = SIZE(initial_conds)
+    status = 0
+    
+    ! Generate time points using linspace_h
+    CALL linspace_h(y0, y_end, h, time_points)
+    IF (.NOT. ALLOCATED(time_points)) THEN
+        status = 2  ! Error in generating time points
+        RETURN
+    END IF
+    
+    ! Allocate the solution matrix first (add 1 column for independent variable)
+    ALLOCATE(solution_matrix(SIZE(time_points), system_size + 1), STAT=status)
+    IF (status /= 0) THEN
+        status = 4  ! Memory allocation error for solution matrix
+        DEALLOCATE(time_points)
+        RETURN
+    END IF
+    
+    ! Allocate working arrays
+    ALLOCATE(y(system_size), k1(system_size), k2(system_size), &
+             k3(system_size), k4(system_size), temp(system_size), STAT=status)
+    IF (status /= 0) THEN
+        status = 1  ! Memory allocation error for working arrays
+        DEALLOCATE(time_points, solution_matrix)
+        RETURN
+    END IF
+    
+    ! Set initial conditions
+    y = initial_conds
+    solution_matrix(1,1) = time_points(1)          ! Store initial time
+    solution_matrix(1,2:) = y                      ! Store initial state
+    
+    ! Main RK4 integration loop
+    DO i = 2, SIZE(time_points)
+        ! Store time point
+        solution_matrix(i,1) = time_points(i)
+        
+        ! k1 = f(t, y)
+        CALL ODE_System_ptr(system_size, time_points(i-1), y, k1)
+        
+        ! k2 = f(t + h/2, y + (h/2)*k1)
+        temp = y + (h/2.0_pv)*k1
+        CALL ODE_System_ptr(system_size, time_points(i-1) + h/2.0_pv, temp, k2)
+        
+        ! k3 = f(t + h/2, y + (h/2)*k2)
+        temp = y + (h/2.0_pv)*k2
+        CALL ODE_System_ptr(system_size, time_points(i-1) + h/2.0_pv, temp, k3)
+        
+        ! k4 = f(t + h, y + h*k3)
+        temp = y + h*k3
+        CALL ODE_System_ptr(system_size, time_points(i-1) + h, temp, k4)
+        
+        ! Update solution: y(n+1) = y(n) + h*(k1 + 2*k2 + 2*k3 + k4)/6
+        y = y + h*(k1 + 2.0_pv*k2 + 2.0_pv*k3 + k4)/6.0_pv
+        
+        ! Store solution (skip first column as it's for time)
+        solution_matrix(i,2:) = y
+    END DO
+    
+    ! Clean up
+    DEALLOCATE(y, k1, k2, k3, k4, temp, time_points)
+    
+END SUBROUTINE RK4_Fixed_Step2
+
+
 subroutine ODE_Numerical_Solve_RK4(indp_var_span, n_sys, initial_conds, ODE_System_ptr, solution_matrix, status)
     !-----------------------------------------------------------------------
     ! This subroutine uses a fixed-step classical Runge-Kutta (RK4) method to
